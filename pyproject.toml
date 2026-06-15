@@ -1,0 +1,35 @@
+[project]
+name = "seed-model-providers"
+version = "1.0.0"
+description = "Unified model provider catalog and protocol resolution for Seed/CodeAgent — extracted from seed.core.model_providers"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Seed Contributors" }]
+dependencies = [
+    "requests>=2.28.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "ruff>=0.4.0"]
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["seed_model_providers*"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+line-length = 120
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "SIM"]
+ignore = ["E501"]
