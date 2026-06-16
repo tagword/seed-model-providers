@@ -67,6 +67,12 @@ def count_messages(messages: list[dict[str, Any]]) -> dict[str, int]:
         else:
             text = str(content or "")
             content_tokens += count_tokens(text)
+
+        # tool_calls JSON 参数（assistant 消息中 content 和 tool_calls 可能同时存在）
+        tool_calls = msg.get("tool_calls")
+        if tool_calls:
+            content_tokens += count_tokens(json.dumps(tool_calls, ensure_ascii=False))
+
         content_tokens += 4
 
     return {
