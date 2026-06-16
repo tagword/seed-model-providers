@@ -106,7 +106,7 @@ def test_preset_display_fields_infers_label() -> None:
 
 
 def test_infer_use_type_for_provider_model() -> None:
-    from seed.core.model_providers import infer_preset_use_type, infer_use_type_for_provider_model
+    from seed_model_providers import infer_preset_use_type, infer_use_type_for_provider_model
 
     assert infer_use_type_for_provider_model("minimax", "image-01") == "image"
     assert infer_use_type_for_provider_model("minimax", "speech-2.8-turbo") == "speech"
@@ -124,7 +124,7 @@ def test_infer_use_type_for_provider_model() -> None:
 
 
 def test_materialize_preset_from_form_video_gen() -> None:
-    from seed.core.model_providers import materialize_preset_from_form
+    from seed_model_providers import materialize_preset_from_form
 
     out = materialize_preset_from_form(
         {
@@ -141,7 +141,7 @@ def test_materialize_preset_from_form_video_gen() -> None:
 
 
 def test_agnes_videos_url() -> None:
-    from seed.core.model_providers import _agnes_videos_url
+    from seed_model_providers.model_providers import _agnes_videos_url
 
     assert (
         _agnes_videos_url("https://apihub.agnes-ai.com/v1")
@@ -150,7 +150,7 @@ def test_agnes_videos_url() -> None:
 
 
 def test_minimax_music_url() -> None:
-    from seed.core.model_providers import _minimax_music_url
+    from seed_model_providers.model_providers import _minimax_music_url
 
     assert (
         _minimax_music_url("https://api.minimaxi.com/v1")
@@ -159,7 +159,7 @@ def test_minimax_music_url() -> None:
 
 
 def test_materialize_preset_from_form_music() -> None:
-    from seed.core.model_providers import materialize_preset_from_form
+    from seed_model_providers import materialize_preset_from_form
 
     out = materialize_preset_from_form(
         {
@@ -176,7 +176,7 @@ def test_materialize_preset_from_form_music() -> None:
 
 
 def test_materialize_preset_from_form_speech() -> None:
-    from seed.core.model_providers import materialize_preset_from_form
+    from seed_model_providers import materialize_preset_from_form
 
     out = materialize_preset_from_form(
         {
@@ -193,7 +193,7 @@ def test_materialize_preset_from_form_speech() -> None:
 
 
 def test_materialize_infers_use_type_from_model() -> None:
-    from seed.core.model_providers import materialize_preset_from_form
+    from seed_model_providers import materialize_preset_from_form
 
     out = materialize_preset_from_form(
         {
@@ -207,7 +207,7 @@ def test_materialize_infers_use_type_from_model() -> None:
 
 
 def test_materialize_preset_from_form_minimax_image() -> None:
-    from seed.core.model_providers import materialize_preset_from_form
+    from seed_model_providers import materialize_preset_from_form
 
     body = {
         "id": "minimax-img",
@@ -227,7 +227,7 @@ def test_materialize_preset_from_form_minimax_image() -> None:
 
 
 def test_materialize_advanced_vision_flags() -> None:
-    from seed.core.model_providers import materialize_preset_from_form
+    from seed_model_providers import materialize_preset_from_form
 
     out = materialize_preset_from_form(
         {
@@ -247,7 +247,7 @@ def test_materialize_advanced_vision_flags() -> None:
 
 
 def test_materialize_ollama_chat_defaults() -> None:
-    from seed.core.model_providers import materialize_preset_from_form
+    from seed_model_providers import materialize_preset_from_form
 
     out = materialize_preset_from_form(
         {
@@ -264,7 +264,7 @@ def test_materialize_ollama_chat_defaults() -> None:
 
 
 def test_materialize_custom_image_flags() -> None:
-    from seed.core.model_providers import materialize_preset_from_form
+    from seed_model_providers import materialize_preset_from_form
 
     out = materialize_preset_from_form(
         {
@@ -281,7 +281,7 @@ def test_materialize_custom_image_flags() -> None:
 
 
 def test_normalize_volcengine_image_model() -> None:
-    from seed.core.model_providers import normalize_volcengine_image_model
+    from seed_model_providers import normalize_volcengine_image_model
 
     assert (
         normalize_volcengine_image_model("doubao-seedream-5-0-lite")
@@ -291,14 +291,14 @@ def test_normalize_volcengine_image_model() -> None:
 
 
 def test_preset_auto_name() -> None:
-    from seed.core.model_providers import preset_auto_name, preset_auto_id
+    from seed_model_providers import preset_auto_name, preset_auto_id
 
     assert preset_auto_name("minimax", "image-01") == "minimax/image-01"
     assert preset_auto_id("minimax", "image-01") == "minimax_image-01"
 
 
 def test_deepseek_thinking_extra_body_effort_mapping() -> None:
-    from seed.core.model_providers import apply_chat_thinking_extra_body, normalize_reasoning_effort
+    from seed_model_providers import apply_chat_thinking_extra_body, normalize_reasoning_effort
 
     params: dict = {}
     extra: dict = {}
@@ -344,7 +344,7 @@ def test_deepseek_thinking_extra_body_effort_mapping() -> None:
 
 
 def test_normalize_deepseek_chat_model() -> None:
-    from seed.core.model_providers import normalize_deepseek_chat_model
+    from seed_model_providers import normalize_deepseek_chat_model
 
     assert normalize_deepseek_chat_model("deepseek-chat") == "deepseek-v4-flash"
     assert normalize_deepseek_chat_model("deepseek-reasoner") == "deepseek-v4-flash"
@@ -352,7 +352,7 @@ def test_normalize_deepseek_chat_model() -> None:
 
 
 def test_materialize_preset_from_form_deepseek_chat() -> None:
-    from seed.core.model_providers import materialize_preset_from_form
+    from seed_model_providers import materialize_preset_from_form
 
     out = materialize_preset_from_form(
         {

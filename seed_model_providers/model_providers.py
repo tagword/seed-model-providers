@@ -37,6 +37,8 @@ from typing import Any, Dict, List, Optional
 
 import requests
 
+from seed.core import env_access as _ea
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -742,8 +744,6 @@ def normalize_reasoning_effort(raw: Optional[str] = None) -> str:
     """
     effort = (raw or "").strip().lower()
     if not effort:
-        from seed.core import env_access as _ea
-
         effort = _ea.pick_default("high", *_ea.LLM_REASONING_EFFORT).strip().lower()
     if effort in ("low", "medium", "minimal", "high", "max", "none", "xhigh"):
         return "max" if effort == "xhigh" else effort
@@ -760,7 +760,6 @@ def apply_chat_thinking_extra_body(
     reasoning_effort: Optional[str] = None,
 ) -> None:
     """Merge provider-specific thinking/reasoning fields into params (in place)."""
-    _ = base_url
 
     if chat_protocol == "deepseek":
         # V4 思考模式：https://api-docs.deepseek.com/zh-cn/guides/thinking_mode
@@ -790,8 +789,6 @@ def apply_chat_thinking_extra_body(
 
 
 def should_send_reasoning_content(*, chat_protocol: str, base_url: str) -> bool:
-    from seed.core import env_access as _ea
-
     env = _ea.pick_default("", *_ea.LLM_SEND_REASONING_CONTENT).strip().lower()
     if env in ("1", "true", "yes", "on"):
         return True
@@ -803,8 +800,6 @@ def should_send_reasoning_content(*, chat_protocol: str, base_url: str) -> bool:
 
 
 def default_max_request_body_bytes(chat_protocol: str, base_url: str) -> int:
-    from seed.core import env_access as _ea
-
     raw = _ea.pick_nonempty(*_ea.LLM_MAX_REQUEST_BODY_BYTES)
     if raw:
         try:
