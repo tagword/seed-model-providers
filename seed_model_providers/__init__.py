@@ -65,6 +65,12 @@ from seed_model_providers.model_providers import (
     call_minimax_video_generation,
     normalize_video_num_frames,
 )
+from seed_model_providers.net import (
+    is_local_url,
+    is_local_host,
+    requests_proxies_for,
+    httpx_trust_env_for,
+)
 
 __all__ = [
     "USE_TYPE_LABELS",
@@ -109,6 +115,10 @@ __all__ = [
     "call_agnes_video_generation",
     "call_minimax_video_generation",
     "normalize_video_num_frames",
+    "is_local_url",
+    "is_local_host",
+    "requests_proxies_for",
+    "httpx_trust_env_for",
 ]
 
 __version__ = "1.0.0"

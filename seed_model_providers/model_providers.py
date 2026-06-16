@@ -52,6 +52,43 @@ from seed.core import env_access as _ea
 
 logger = logging.getLogger(__name__)
 
+
+def _env_names(attr: str, fallback: tuple[str, ...]) -> tuple[str, ...]:
+    names = getattr(_ea, attr, None)
+    if isinstance(names, tuple) and names:
+        return names
+    return fallback
+
+
+def _pick_nonempty_env(attr: str, fallback: tuple[str, ...]) -> Optional[str]:
+    names = _env_names(attr, fallback)
+    picker = getattr(_ea, "pick_nonempty", None)
+    if callable(picker):
+        try:
+            return picker(*names)
+        except Exception:
+            pass
+    for k in names:
+        v = os.environ.get(k)
+        if v is not None and str(v).strip():
+            return str(v).strip()
+    return None
+
+
+def _pick_default_env(default: str, attr: str, fallback: tuple[str, ...]) -> str:
+    names = _env_names(attr, fallback)
+    picker = getattr(_ea, "pick_default", None)
+    if callable(picker):
+        try:
+            return str(picker(default, *names))
+        except Exception:
+            pass
+    for k in names:
+        v = os.environ.get(k)
+        if v is not None and str(v).strip():
+            return str(v).strip()
+    return default
+
 # ---------------------------------------------------------------------------
 # Catalog (defaults for Web UI + protocol dispatch)
 # ---------------------------------------------------------------------------
@@ -969,7 +1006,9 @@ def normalize_reasoning_effort(raw: Optional[str] = None) -> str:
     """
     effort = (raw or "").strip().lower()
     if not effort:
-        effort = _ea.pick_default("high", *_ea.LLM_REASONING_EFFORT).strip().lower()
+        effort = _pick_default_env(
+            "high", "LLM_REASONING_EFFORT", ("SEED_LLM_REASONING_EFFORT",)
+        ).strip().lower()
     if effort in ("low", "medium", "minimal", "high", "max", "none", "xhigh"):
         return "max" if effort == "xhigh" else effort
     return "high"
@@ -996,9 +1035,9 @@ def apply_chat_thinking_extra_body(
         return
 
     if chat_protocol == "sglang":
-        if _ea.pick_default("1", *_ea.LLM_SEPARATE_REASONING) != "0":
+        if _pick_default_env("1", "LLM_SEPARATE_REASONING", ("SEED_LLM_SEPARATE_REASONING",)) != "0":
             extra_body["separate_reasoning"] = True
-        if _ea.pick_default("1", *_ea.LLM_CHAT_TEMPLATE_KWARGS) != "0":
+        if _pick_default_env("1", "LLM_CHAT_TEMPLATE_KWARGS", ("SEED_LLM_CHAT_TEMPLATE_KWARGS",)) != "0":
             extra_body.setdefault("chat_template_kwargs", {})
             extra_body["chat_template_kwargs"]["enable_thinking"] = resolved_thinking
         return
@@ -1136,8 +1175,14 @@ def apply_provider_chat_headers(
     raw = (base_url or "").lower()
     if pid != "openrouter" and "openrouter.ai" not in raw:
         return
-    referer = _ea.pick_nonempty(*_ea.LLM_HTTP_REFERER)
-    title = _ea.pick_nonempty(*_ea.LLM_APP_TITLE)
+    referer = _pick_nonempty_env(
+        "LLM_HTTP_REFERER",
+        ("SEED_LLM_HTTP_REFERER", "SEED_OPENROUTER_HTTP_REFERER", "OPENROUTER_HTTP_REFERER"),
+    )
+    title = _pick_nonempty_env(
+        "LLM_APP_TITLE",
+        ("SEED_LLM_APP_TITLE", "SEED_OPENROUTER_APP_TITLE", "OPENROUTER_APP_TITLE", "X_TITLE"),
+    )
     if not referer:
         referer = "https://github.com/seed-agent/codeagent"
     if not title:
@@ -1160,7 +1205,11 @@ def apply_chat_stream_options(*, chat_protocol: str, params: Dict[str, Any]) -> 
 
 
 def should_send_reasoning_content(*, chat_protocol: str, base_url: str) -> bool:
-    env = _ea.pick_default("", *_ea.LLM_SEND_REASONING_CONTENT).strip().lower()
+    env = _pick_default_env(
+        "",
+        "LLM_SEND_REASONING_CONTENT",
+        ("SEED_LLM_SEND_REASONING_CONTENT",),
+    ).strip().lower()
     if env in ("1", "true", "yes", "on"):
         return True
     if env in ("0", "false", "no", "off"):
@@ -1169,7 +1218,7 @@ def should_send_reasoning_content(*, chat_protocol: str, base_url: str) -> bool:
 
 
 def default_max_request_body_bytes(chat_protocol: str, base_url: str) -> int:
-    raw = _ea.pick_nonempty(*_ea.LLM_MAX_REQUEST_BODY_BYTES)
+    raw = _pick_nonempty_env("LLM_MAX_REQUEST_BODY_BYTES", ("SEED_LLM_MAX_REQUEST_BODY_BYTES",))
     if raw:
         try:
             return max(0, int(raw))
