@@ -24,6 +24,230 @@ def test_resolve_provider_explicit() -> None:
     assert resolve_provider_for_preset(p) == "openai"
 
 
+def test_infer_dashscope_url() -> None:
+    assert infer_provider_from_url("https://dashscope.aliyuncs.com/compatible-mode/v1") == "dashscope"
+
+
+def test_dashscope_chat_protocol() -> None:
+    assert resolve_chat_protocol(provider="dashscope", base_url="") == "dashscope"
+
+
+def test_dashscope_thinking_extra_body() -> None:
+    from seed_model_providers import apply_chat_thinking_extra_body
+
+    params: dict = {}
+    extra: dict = {}
+    apply_chat_thinking_extra_body(
+        chat_protocol="dashscope",
+        base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+        params=params,
+        extra_body=extra,
+        resolved_thinking=True,
+    )
+    assert extra["enable_thinking"] is True
+
+
+def test_moonshot_thinking_extra_body() -> None:
+    from seed_model_providers import apply_chat_thinking_extra_body
+
+    extra: dict = {}
+    apply_chat_thinking_extra_body(
+        chat_protocol="moonshot",
+        base_url="https://api.moonshot.cn/v1",
+        params={},
+        extra_body=extra,
+        resolved_thinking=False,
+    )
+    assert extra["thinking"] == {"type": "disabled"}
+
+
+def test_anthropic_url_not_minimax_anthropic_protocol() -> None:
+    assert infer_provider_from_url("https://api.anthropic.com/v1") == "anthropic"
+    assert resolve_chat_protocol(provider="anthropic", base_url="https://api.anthropic.com/v1") == "openai"
+
+
+def test_minimax_anthropic_protocol_only_on_minimax_host() -> None:
+    assert (
+        resolve_chat_protocol(
+            provider="minimax",
+            base_url="https://api.minimaxi.com/anthropic/v1",
+        )
+        == "minimax_anthropic"
+    )
+    assert (
+        resolve_chat_protocol(provider="", base_url="https://api.anthropic.com/v1")
+        == "openai"
+    )
+
+
+def test_uses_full_reasoning_content_echo() -> None:
+    from seed_model_providers import uses_full_reasoning_content_echo
+
+    assert uses_full_reasoning_content_echo(chat_protocol="dashscope") is True
+    assert uses_full_reasoning_content_echo(chat_protocol="moonshot") is True
+    assert uses_full_reasoning_content_echo(chat_protocol="zhipu") is True
+    assert uses_full_reasoning_content_echo(chat_protocol="openai") is False
+
+
+def test_zhipu_chat_protocol() -> None:
+    assert resolve_chat_protocol(provider="zhipu", base_url="") == "zhipu"
+
+
+def test_dashscope_preserve_thinking_extra_body() -> None:
+    from seed_model_providers import apply_chat_thinking_extra_body
+
+    extra: dict = {}
+    apply_chat_thinking_extra_body(
+        chat_protocol="dashscope",
+        base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
+        params={},
+        extra_body=extra,
+        resolved_thinking=True,
+    )
+    assert extra["enable_thinking"] is True
+    assert extra.get("preserve_thinking") is True
+
+
+def test_zhipu_thinking_extra_body() -> None:
+    from seed_model_providers import apply_chat_thinking_extra_body
+
+    extra: dict = {}
+    apply_chat_thinking_extra_body(
+        chat_protocol="zhipu",
+        base_url="https://open.bigmodel.cn/api/paas/v4",
+        params={},
+        extra_body=extra,
+        resolved_thinking=True,
+        model="glm-4.7",
+    )
+    assert extra["thinking"]["type"] == "enabled"
+    assert extra["thinking"].get("clear_thinking") is False
+
+
+def test_moonshot_k26_preserved_thinking_keep() -> None:
+    from seed_model_providers import apply_chat_thinking_extra_body
+
+    extra: dict = {}
+    apply_chat_thinking_extra_body(
+        chat_protocol="moonshot",
+        base_url="https://api.moonshot.cn/v1",
+        params={},
+        extra_body=extra,
+        resolved_thinking=True,
+        model="kimi-k2.6",
+    )
+    assert extra["thinking"]["keep"] == "all"
+
+
+def test_moonshot_strips_reasoning_effort() -> None:
+    from seed_model_providers import apply_chat_thinking_extra_body
+
+    params = {"reasoning_effort": "high"}
+    extra: dict = {}
+    apply_chat_thinking_extra_body(
+        chat_protocol="moonshot",
+        base_url="https://api.moonshot.cn/v1",
+        params=params,
+        extra_body=extra,
+        resolved_thinking=True,
+        reasoning_effort="high",
+        model="kimi-k2.5",
+    )
+    assert "reasoning_effort" not in params
+
+
+def test_normalize_chat_usage_input_tokens() -> None:
+    from seed_model_providers import normalize_chat_usage
+
+    out = normalize_chat_usage(
+        {"input_tokens": 100, "output_tokens": 50, "cache_read_input_tokens": 20},
+        provider="anthropic",
+    )
+    assert out["prompt_tokens"] == 120
+    assert out["completion_tokens"] == 50
+
+
+def test_normalize_chat_usage_minimax_cache() -> None:
+    from seed_model_providers import normalize_chat_usage
+
+    out = normalize_chat_usage(
+        {
+            "prompt_tokens": 1000,
+            "prompt_tokens_details": {"cached_tokens": 800},
+        },
+        chat_protocol="minimax",
+        provider="minimax",
+    )
+    assert out["prompt_cache_hit_tokens"] == 800
+
+
+def test_apply_provider_openrouter_headers() -> None:
+    from seed_model_providers import apply_provider_chat_headers
+
+    headers: dict = {"Content-Type": "application/json"}
+    apply_provider_chat_headers(
+        provider="openrouter",
+        base_url="https://openrouter.ai/api/v1",
+        headers=headers,
+    )
+    assert "HTTP-Referer" in headers
+    assert "X-OpenRouter-Title" in headers
+
+
+def test_apply_chat_stream_options() -> None:
+    from seed_model_providers import apply_chat_stream_options
+
+    params = {"stream": True}
+    apply_chat_stream_options(chat_protocol="openai", params=params)
+    assert params["stream_options"]["include_usage"] is True
+
+
+def test_materialize_zhipu_chat() -> None:
+    from seed_model_providers import enrich_preset_defaults, materialize_preset_from_form
+
+    out = materialize_preset_from_form(
+        {
+            "provider": "zhipu",
+            "use_type": "chat",
+            "model": "glm-4.7",
+            "api_key": "sk-test",
+        }
+    )
+    enriched = enrich_preset_defaults(out)
+    assert enriched["_chat_protocol"] == "zhipu"
+
+
+def test_materialize_dashscope_chat() -> None:
+    from seed_model_providers import enrich_preset_defaults, materialize_preset_from_form
+
+    out = materialize_preset_from_form(
+        {
+            "provider": "dashscope",
+            "use_type": "chat",
+            "model": "qwen-plus",
+            "api_key": "sk-test",
+        }
+    )
+    assert out["base_url"] == "https://dashscope.aliyuncs.com/compatible-mode/v1"
+    enriched = enrich_preset_defaults(out)
+    assert enriched["_chat_protocol"] == "dashscope"
+
+
+def test_infer_moonshot_url() -> None:
+    assert infer_provider_from_url("https://api.moonshot.cn/v1") == "moonshot"
+
+
+def test_infer_openrouter_url() -> None:
+    assert infer_provider_from_url("https://openrouter.ai/api/v1") == "openrouter"
+
+
+def test_infer_google_gemini_url() -> None:
+    assert (
+        infer_provider_from_url("https://generativelanguage.googleapis.com/v1beta/openai")
+        == "google"
+    )
+
+
 def test_deepseek_chat_protocol() -> None:
     assert resolve_chat_protocol(provider="deepseek", base_url="") == "deepseek"
     assert uses_deepseek_chat_protocol(provider="deepseek", base_url="")

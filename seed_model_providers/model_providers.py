@@ -5,10 +5,21 @@ Presets may set ``provider`` explicitly; when omitted, provider is inferred from
 ``base_url`` (legacy behavior, e.g. DeepSeek host → deepseek chat protocol).
 
 Chat protocols:
-  - ``deepseek``: native thinking + reasoning_content echo
+  - ``deepseek``: extra_body.thinking + reasoning_effort; echo reasoning_content
+  - ``dashscope``: extra_body.enable_thinking + preserve_thinking; echo reasoning_content
+  - ``moonshot``: extra_body.thinking.type (+ keep=all on K2.6+); echo reasoning_content
+  - ``zhipu``: extra_body.thinking.type + clear_thinking=false (Preserved Thinking); echo reasoning_content
+  - ``minimax``: reasoning_split + reasoning_details; M2.x inline think tags
+  - ``minimax_anthropic``: URL ``/anthropic`` → Anthropic Messages + prompt caching (llm_exec)
   - ``sglang``: separate_reasoning + chat_template_kwargs
-  - ``minimax``: reasoning_details + thinking tag stripping + reasoning_split opt-in
-  - ``openai``: minimal OpenAI-compatible payload
+  - ``openai``: generic OpenAI-compatible (OpenAI, Azure, Gemini compat, Claude compat, OpenRouter, Groq, Ollama, 方舟 Doubao, …)
+
+Request headers (chat):
+  - ``openrouter``: HTTP-Referer + X-OpenRouter-Title (env: SEED_LLM_HTTP_REFERER / SEED_LLM_APP_TITLE)
+
+Usage normalization (``normalize_chat_usage``):
+  - Maps input_tokens / promptTokenCount → prompt_tokens for context indicator
+  - MiniMax cache fields → prompt_cache_hit_tokens (unchanged)
 
 Image protocols:
   - ``openai_images``: POST {base}/images/generations (OpenAI DALL·E 等)
@@ -70,23 +81,17 @@ PROVIDER_CATALOG: List[Dict[str, Any]] = [
         "requires_api_key": True,
         "models": {
             "chat": [
-                {
-                    "id": "deepseek-v4-flash",
-                    "label": "deepseek-v4-flash",
-                },
-                {
-                    "id": "deepseek-v4-pro",
-                    "label": "deepseek-v4-pro",
-                },
+                {"id": "deepseek-v4-flash", "label": "DeepSeek V4 Flash"},
+                {"id": "deepseek-v4-pro", "label": "DeepSeek V4 Pro"},
             ],
         },
     },
     {
         "id": "volcengine",
         "label": "火山方舟 (Seedream)",
-        "description": "豆包 / 方舟；生图 model 填模型列表中的 Model ID（见文档 1330310）",
+        "description": "豆包 / 方舟；对话 model 填控制台 Model ID 或 ep- 接入点 ID（见文档 1330310）",
         "default_base_url": "https://ark.cn-beijing.volces.com/api/v3",
-        "default_chat_model": "doubao-seedream-5-0-lite-260128",
+        "default_chat_model": "doubao-seed-2-0-lite-260215",
         "default_image_model": "doubao-seedream-5-0-lite-260128",
         "chat_protocol": "openai",
         "image_protocol": "volcengine_images",
@@ -94,9 +99,11 @@ PROVIDER_CATALOG: List[Dict[str, Any]] = [
         "requires_api_key": True,
         "models": {
             "chat": [
-                {"id": "MiniMax-M2.7", "label": "MiniMax-M2.7"},
-                {"id": "MiniMax-M2.7-highspeed", "label": "MiniMax-M2.7 高速"},
-                {"id": "MiniMax-M2.5", "label": "MiniMax-M2.5"},
+                {"id": "doubao-seed-2-0-pro-260215", "label": "Doubao Seed 2.0 Pro"},
+                {"id": "doubao-seed-2-0-lite-260215", "label": "Doubao Seed 2.0 Lite"},
+                {"id": "doubao-seed-1-8-251228", "label": "Doubao Seed 1.8"},
+                {"id": "doubao-1-5-pro-32k-250115", "label": "Doubao 1.5 Pro 32k"},
+                {"id": "deepseek-v3-2-251218", "label": "DeepSeek V3.2（方舟接入点）"},
             ],
             "image": [
                 {"id": "doubao-seedream-5-0-lite-260128", "label": "Seedream 5.0 lite"},
@@ -109,7 +116,7 @@ PROVIDER_CATALOG: List[Dict[str, Any]] = [
     {
         "id": "minimax",
         "label": "MiniMax",
-        "description": "MiniMax 开放平台；聊天、生图、朗读（T2A）、音乐、视频生成共用 API Key",
+        "description": "MiniMax 开放平台；聊天、生图、朗读（T2A）、音乐、视频生成共用 API Key；Anthropic 兼容端点 base_url 含 /anthropic",
         "default_base_url": "https://api.minimaxi.com/v1",
         "default_chat_model": "MiniMax-M2.7",
         "default_image_model": "image-01",
@@ -167,9 +174,9 @@ PROVIDER_CATALOG: List[Dict[str, Any]] = [
     {
         "id": "openai",
         "label": "OpenAI",
-        "description": "官方 OpenAI API",
+        "description": "官方 OpenAI API；o 系列 / GPT-5 族请填控制台可用 model id",
         "default_base_url": "https://api.openai.com/v1",
-        "default_chat_model": "gpt-4o",
+        "default_chat_model": "gpt-4.1",
         "default_image_model": "dall-e-3",
         "chat_protocol": "openai",
         "image_protocol": "openai_images",
@@ -177,15 +184,190 @@ PROVIDER_CATALOG: List[Dict[str, Any]] = [
         "requires_api_key": True,
         "models": {
             "chat": [
+                {"id": "gpt-4.1", "label": "GPT-4.1"},
+                {"id": "gpt-4.1-mini", "label": "GPT-4.1 mini"},
                 {"id": "gpt-4o", "label": "GPT-4o"},
                 {"id": "gpt-4o-mini", "label": "GPT-4o mini"},
+                {"id": "o3-mini", "label": "o3-mini（推理）"},
             ],
             "image": [
                 {"id": "dall-e-3", "label": "DALL·E 3"},
                 {"id": "dall-e-2", "label": "DALL·E 2"},
+                {"id": "gpt-image-1", "label": "GPT Image 1"},
             ],
             "vision": [
+                {"id": "gpt-4.1", "label": "GPT-4.1（识图）"},
                 {"id": "gpt-4o", "label": "GPT-4o（识图）"},
+            ],
+        },
+    },
+    {
+        "id": "anthropic",
+        "label": "Anthropic (Claude)",
+        "description": "Claude 官方 OpenAI 兼容层（base_url=https://api.anthropic.com/v1/）；扩展思考/缓存请用原生 Messages API",
+        "default_base_url": "https://api.anthropic.com/v1",
+        "default_chat_model": "claude-sonnet-4-20250514",
+        "default_image_model": "",
+        "chat_protocol": "openai",
+        "image_protocol": "none",
+        "capabilities": ["chat", "vision"],
+        "requires_api_key": True,
+        "models": {
+            "chat": [
+                {"id": "claude-sonnet-4-20250514", "label": "Claude Sonnet 4"},
+                {"id": "claude-opus-4-20250514", "label": "Claude Opus 4"},
+                {"id": "claude-3-7-sonnet-20250219", "label": "Claude 3.7 Sonnet"},
+                {"id": "claude-3-5-sonnet-20241022", "label": "Claude 3.5 Sonnet"},
+                {"id": "claude-3-5-haiku-20241022", "label": "Claude 3.5 Haiku"},
+            ],
+            "vision": [
+                {"id": "claude-sonnet-4-20250514", "label": "Claude Sonnet 4（识图）"},
+                {"id": "claude-3-7-sonnet-20250219", "label": "Claude 3.7 Sonnet（识图）"},
+            ],
+        },
+    },
+    {
+        "id": "google",
+        "label": "Google Gemini",
+        "description": "Gemini OpenAI 兼容层（generativelanguage.googleapis.com/v1beta/openai）",
+        "default_base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+        "default_chat_model": "gemini-2.5-flash",
+        "default_image_model": "",
+        "chat_protocol": "openai",
+        "image_protocol": "none",
+        "capabilities": ["chat", "vision"],
+        "requires_api_key": True,
+        "models": {
+            "chat": [
+                {"id": "gemini-2.5-flash", "label": "Gemini 2.5 Flash"},
+                {"id": "gemini-2.5-pro", "label": "Gemini 2.5 Pro"},
+                {"id": "gemini-2.0-flash", "label": "Gemini 2.0 Flash"},
+                {"id": "gemini-2.5-flash-lite", "label": "Gemini 2.5 Flash Lite"},
+            ],
+            "vision": [
+                {"id": "gemini-2.5-flash", "label": "Gemini 2.5 Flash（识图）"},
+                {"id": "gemini-2.5-pro", "label": "Gemini 2.5 Pro（识图）"},
+            ],
+        },
+    },
+    {
+        "id": "dashscope",
+        "label": "阿里云百炼 (Qwen)",
+        "description": "DashScope OpenAI 兼容；思考 enable_thinking + preserve_thinking + reasoning_content",
+        "default_base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "default_chat_model": "qwen-plus",
+        "default_image_model": "",
+        "chat_protocol": "dashscope",
+        "image_protocol": "none",
+        "capabilities": ["chat", "vision"],
+        "requires_api_key": True,
+        "models": {
+            "chat": [
+                {"id": "qwen-plus", "label": "Qwen Plus"},
+                {"id": "qwen-max", "label": "Qwen Max"},
+                {"id": "qwen-turbo", "label": "Qwen Turbo"},
+                {"id": "qwen3-max", "label": "Qwen3 Max"},
+                {"id": "qwen3.5-plus", "label": "Qwen3.5 Plus"},
+                {"id": "qwq-plus", "label": "QwQ Plus（仅思考）"},
+                {"id": "qwq-32b", "label": "QwQ 32B（仅思考）"},
+            ],
+            "vision": [
+                {"id": "qwen-vl-max", "label": "Qwen-VL Max"},
+                {"id": "qwen-vl-plus", "label": "Qwen-VL Plus"},
+                {"id": "qwen3-vl-plus", "label": "Qwen3-VL Plus"},
+            ],
+        },
+    },
+    {
+        "id": "moonshot",
+        "label": "Moonshot (Kimi)",
+        "description": "Kimi OpenAI 兼容；思考 extra_body.thinking.type（K2.5+ 默认开启）；K2.6+ 支持 thinking.keep=all",
+        "default_base_url": "https://api.moonshot.cn/v1",
+        "default_chat_model": "kimi-k2.5",
+        "default_image_model": "",
+        "chat_protocol": "moonshot",
+        "image_protocol": "none",
+        "capabilities": ["chat", "vision"],
+        "requires_api_key": True,
+        "models": {
+            "chat": [
+                {"id": "kimi-k2.5", "label": "Kimi K2.5"},
+                {"id": "kimi-k2-turbo-preview", "label": "Kimi K2 Turbo"},
+                {"id": "kimi-k2.6", "label": "Kimi K2.6（Preserved Thinking）"},
+                {"id": "moonshot-v1-128k", "label": "Moonshot v1 128k"},
+                {"id": "moonshot-v1-32k", "label": "Moonshot v1 32k"},
+            ],
+            "vision": [
+                {"id": "moonshot-v1-128k-vision-preview", "label": "Moonshot v1 128k Vision"},
+            ],
+        },
+    },
+    {
+        "id": "zhipu",
+        "label": "智谱 AI (GLM)",
+        "description": "GLM OpenAI 兼容；思考 extra_body.thinking.type + clear_thinking=false（Agent 多轮）",
+        "default_base_url": "https://open.bigmodel.cn/api/paas/v4",
+        "default_chat_model": "glm-4.7",
+        "default_image_model": "",
+        "chat_protocol": "zhipu",
+        "image_protocol": "none",
+        "capabilities": ["chat", "vision"],
+        "requires_api_key": True,
+        "models": {
+            "chat": [
+                {"id": "glm-5", "label": "GLM-5"},
+                {"id": "glm-4.7", "label": "GLM-4.7"},
+                {"id": "glm-4.6", "label": "GLM-4.6"},
+                {"id": "glm-4-plus", "label": "GLM-4 Plus"},
+                {"id": "glm-4-flash", "label": "GLM-4 Flash"},
+            ],
+            "vision": [
+                {"id": "glm-4.5v", "label": "GLM-4.5V"},
+                {"id": "glm-4v-plus", "label": "GLM-4V Plus"},
+            ],
+        },
+    },
+    {
+        "id": "openrouter",
+        "label": "OpenRouter",
+        "description": "多模型聚合；model=provider/slug；自动带 HTTP-Referer / X-OpenRouter-Title（可 env 覆盖）",
+        "default_base_url": "https://openrouter.ai/api/v1",
+        "default_chat_model": "openai/gpt-4.1",
+        "default_image_model": "",
+        "chat_protocol": "openai",
+        "image_protocol": "openai_images",
+        "capabilities": ["chat", "vision", "image"],
+        "requires_api_key": True,
+        "models": {
+            "chat": [
+                {"id": "openai/gpt-4.1", "label": "OpenAI GPT-4.1"},
+                {"id": "openai/gpt-4o", "label": "OpenAI GPT-4o"},
+                {"id": "anthropic/claude-sonnet-4", "label": "Claude Sonnet 4"},
+                {"id": "google/gemini-2.5-flash", "label": "Gemini 2.5 Flash"},
+                {"id": "deepseek/deepseek-chat", "label": "DeepSeek Chat"},
+                {"id": "qwen/qwen-plus", "label": "Qwen Plus"},
+            ],
+        },
+    },
+    {
+        "id": "groq",
+        "label": "Groq",
+        "description": "Groq 高速推理 OpenAI 兼容 API",
+        "default_base_url": "https://api.groq.com/openai/v1",
+        "default_chat_model": "llama-3.3-70b-versatile",
+        "default_image_model": "",
+        "chat_protocol": "openai",
+        "image_protocol": "none",
+        "capabilities": ["chat"],
+        "requires_api_key": True,
+        "models": {
+            "chat": [
+                {"id": "llama-3.3-70b-versatile", "label": "Llama 3.3 70B"},
+                {"id": "llama-3.1-8b-instant", "label": "Llama 3.1 8B Instant"},
+                {"id": "meta-llama/llama-4-maverick-17b-128e-instruct", "label": "Llama 4 Maverick 17B"},
+                {"id": "meta-llama/llama-4-scout-17b-16e-instruct", "label": "Llama 4 Scout 17B"},
+                {"id": "qwen-qwq-32b", "label": "QwQ 32B"},
+                {"id": "openai/gpt-oss-120b", "label": "GPT-OSS 120B"},
             ],
         },
     },
@@ -374,6 +556,12 @@ def infer_use_type_for_provider_model(provider_id: str, model_id: str) -> Option
         return "video_gen"
     if pid == "agnes" and "video" in low:
         return "video_gen"
+    if pid == "dashscope" and (low.startswith("qwen-vl") or "vl-" in low):
+        return "vision"
+    if pid == "moonshot" and "vision" in low:
+        return "vision"
+    if pid == "zhipu" and ("4v" in low or low.startswith("glm-4v")):
+        return "vision"
     return None
 
 
@@ -597,6 +785,16 @@ def normalize_provider_id(raw: Optional[str]) -> str:
         "volc_engine": "volcengine",
         "doubao": "volcengine",
         "agnes_ai": "agnes",
+        "claude": "anthropic",
+        "gemini": "google",
+        "google_ai": "google",
+        "qwen": "dashscope",
+        "aliyun": "dashscope",
+        "bailian": "dashscope",
+        "kimi": "moonshot",
+        "glm": "zhipu",
+        "bigmodel": "zhipu",
+        "zhipuai": "zhipu",
     }
     return aliases.get(pid, pid if pid in _CATALOG_BY_ID else "")
 
@@ -607,8 +805,22 @@ def infer_provider_from_url(base_url: str) -> str:
         return "deepseek"
     if "minimaxi.com" in raw or "minimax.io" in raw:
         return "minimax"
-    if "volces.com" in raw or "volcengine.com" in raw:
+    if "volces.com" in raw or "volcengine.com" in raw or "maas.aliyuncs.com" in raw:
         return "volcengine"
+    if "dashscope.aliyuncs.com" in raw or "dashscope-intl.aliyuncs.com" in raw:
+        return "dashscope"
+    if "moonshot.ai" in raw or "moonshot.cn" in raw:
+        return "moonshot"
+    if "open.bigmodel.cn" in raw or "bigmodel.cn" in raw:
+        return "zhipu"
+    if "openrouter.ai" in raw:
+        return "openrouter"
+    if "api.groq.com" in raw or "groq.com/openai" in raw:
+        return "groq"
+    if "generativelanguage.googleapis.com" in raw:
+        return "google"
+    if "api.anthropic.com" in raw or "anthropic." in raw:
+        return "anthropic"
     if "agnes-ai.com" in raw or "apihub.agnes-ai.com" in raw:
         return "agnes"
     if "api.openai.com" in raw:
@@ -643,8 +855,10 @@ def get_provider_spec(provider_id: str) -> Dict[str, Any]:
 def resolve_chat_protocol(*, provider: str = "", base_url: str = "") -> str:
     pid = normalize_provider_id(provider)
     raw = (base_url or "").lower()
-    # Anthropic 协议端点（/anthropic 路径）优先级最高，触发主动缓存分支
-    if "/anthropic" in raw or "anthropic." in raw:
+    # MiniMax Anthropic 兼容端点（仅 minimaxi 域名 + /anthropic 路径）
+    if ("/anthropic" in raw or raw.endswith("/anthropic")) and (
+        "minimaxi.com" in raw or "minimax.io" in raw
+    ):
         return "minimax_anthropic"
     if pid and pid != "custom":
         return str(get_provider_spec(pid).get("chat_protocol") or "openai")
@@ -683,6 +897,17 @@ def resolve_video_protocol(preset: Dict[str, Any]) -> str:
 
 def uses_deepseek_chat_protocol(*, provider: str = "", base_url: str = "") -> bool:
     return resolve_chat_protocol(provider=provider, base_url=base_url) == "deepseek"
+
+
+# Protocols that echo assistant reasoning_content on every turn (thinking models).
+_FULL_REASONING_ECHO_PROTOCOLS = frozenset({"deepseek", "dashscope", "moonshot", "zhipu"})
+
+
+def uses_full_reasoning_content_echo(*, chat_protocol: str, base_url: str = "") -> bool:
+    """Whether assistant ``reasoning_content`` must be echoed on every turn."""
+    if chat_protocol in _FULL_REASONING_ECHO_PROTOCOLS:
+        return True
+    return uses_deepseek_chat_protocol(provider="", base_url=base_url)
 
 
 def preset_display_fields(preset: Dict[str, Any]) -> Dict[str, str]:
@@ -758,8 +983,10 @@ def apply_chat_thinking_extra_body(
     extra_body: Dict[str, Any],
     resolved_thinking: bool,
     reasoning_effort: Optional[str] = None,
+    model: Optional[str] = None,
 ) -> None:
     """Merge provider-specific thinking/reasoning fields into params (in place)."""
+    _ = base_url  # reserved for URL-specific overrides
 
     if chat_protocol == "deepseek":
         # V4 思考模式：https://api-docs.deepseek.com/zh-cn/guides/thinking_mode
@@ -785,7 +1012,151 @@ def apply_chat_thinking_extra_body(
             extra_body.setdefault("reasoning_split", True)
         return
 
-    # openai / azure / ollama / compatible: optional user extra_body only
+    if chat_protocol == "dashscope":
+        # Qwen 混合思考：https://help.aliyun.com/zh/model-studio/deep-thinking
+        extra_body["enable_thinking"] = bool(resolved_thinking)
+        if resolved_thinking:
+            extra_body["preserve_thinking"] = True
+        return
+
+    if chat_protocol == "moonshot":
+        # Kimi K2.x：https://platform.kimi.ai/docs/guide/use-kimi-k2-thinking-model
+        # 不可与 reasoning_effort 同传（Moonshot 400）
+        thinking: Dict[str, Any] = {
+            "type": "enabled" if resolved_thinking else "disabled",
+        }
+        mid = str(model or "").strip().lower()
+        if resolved_thinking and any(tag in mid for tag in ("kimi-k2.6", "kimi-k2.7", "k2.6", "k2.7")):
+            thinking["keep"] = "all"
+        extra_body["thinking"] = thinking
+        params.pop("reasoning_effort", None)
+        return
+
+    if chat_protocol == "zhipu":
+        # GLM 思考：https://docs.bigmodel.cn/cn/guide/capabilities/thinking
+        thinking_z: Dict[str, Any] = {
+            "type": "enabled" if resolved_thinking else "disabled",
+        }
+        if resolved_thinking:
+            thinking_z["clear_thinking"] = False
+        extra_body["thinking"] = thinking_z
+        params.pop("reasoning_effort", None)
+        return
+
+    # openai / azure / anthropic compat / gemini compat / ollama / compatible
+
+
+def _normalize_minimax_usage_fields(usage: Dict[str, Any]) -> Dict[str, Any]:
+    """Map MiniMax cache fields → internal prompt_cache_* keys."""
+    out = dict(usage)
+    cached = 0
+    try:
+        details = usage.get("prompt_tokens_details")
+        if isinstance(details, dict):
+            v = details.get("cached_tokens")
+            if isinstance(v, (int, float)):
+                cached += int(v)
+    except Exception:
+        pass
+    for k in ("cache_read_input_tokens", "cache_creation_input_tokens"):
+        v = usage.get(k)
+        if isinstance(v, (int, float)):
+            cached += int(v)
+    if cached > 0:
+        out["prompt_cache_hit_tokens"] = cached
+        try:
+            pt = usage.get("prompt_tokens")
+            if isinstance(pt, (int, float)):
+                out["prompt_cache_miss_tokens"] = max(0, int(pt) - cached)
+        except Exception:
+            pass
+    return out
+
+
+def normalize_chat_usage(
+    usage: Dict[str, Any],
+    *,
+    chat_protocol: str = "",
+    provider: str = "",
+) -> Dict[str, Any]:
+    """Normalize provider-specific ``usage`` → OpenAI-shaped ``prompt_tokens`` / ``completion_tokens``."""
+    if not isinstance(usage, dict) or not usage:
+        return usage or {}
+    out = dict(usage)
+    pid = normalize_provider_id(provider)
+
+    pt = out.get("prompt_tokens")
+    if not (isinstance(pt, (int, float)) and int(pt) > 0):
+        inp = out.get("input_tokens")
+        if isinstance(inp, (int, float)) and int(inp) > 0:
+            cached = int(out.get("cache_read_input_tokens") or 0) + int(
+                out.get("cache_creation_input_tokens") or 0
+            )
+            out["prompt_tokens"] = int(inp) + max(0, cached)
+        else:
+            for alt in (
+                "input_token_count",
+                "promptTokenCount",
+                "prompt_token_count",
+                "total_input_tokens",
+            ):
+                v = out.get(alt)
+                if isinstance(v, (int, float)) and int(v) > 0:
+                    out["prompt_tokens"] = int(v)
+                    break
+
+    ct = out.get("completion_tokens")
+    if not (isinstance(ct, (int, float)) and int(ct) > 0):
+        for alt in (
+            "output_tokens",
+            "candidatesTokenCount",
+            "output_token_count",
+            "completion_token_count",
+            "total_output_tokens",
+        ):
+            v = out.get(alt)
+            if isinstance(v, (int, float)) and int(v) > 0:
+                out["completion_tokens"] = int(v)
+                break
+
+    if chat_protocol == "minimax" or pid == "minimax":
+        out = _normalize_minimax_usage_fields(out)
+
+    return out
+
+
+def apply_provider_chat_headers(
+    *,
+    provider: str,
+    base_url: str,
+    headers: Dict[str, str],
+) -> None:
+    """Merge provider-specific HTTP headers (OpenRouter attribution, etc.)."""
+    pid = normalize_provider_id(provider) or infer_provider_from_url(base_url)
+    raw = (base_url or "").lower()
+    if pid != "openrouter" and "openrouter.ai" not in raw:
+        return
+    referer = _ea.pick_nonempty(*_ea.LLM_HTTP_REFERER)
+    title = _ea.pick_nonempty(*_ea.LLM_APP_TITLE)
+    if not referer:
+        referer = "https://github.com/seed-agent/codeagent"
+    if not title:
+        title = "Seed CodeAgent"
+    headers.setdefault("HTTP-Referer", referer)
+    headers.setdefault("X-OpenRouter-Title", title)
+    headers.setdefault("X-Title", title)
+
+
+def apply_chat_stream_options(*, chat_protocol: str, params: Dict[str, Any]) -> None:
+    """Ensure streaming requests can return final ``usage`` (OpenAI stream_options)."""
+    _ = chat_protocol
+    if not params.get("stream"):
+        return
+    opts = params.get("stream_options")
+    if not isinstance(opts, dict):
+        opts = {}
+        params["stream_options"] = opts
+    opts.setdefault("include_usage", True)
 
 
 def should_send_reasoning_content(*, chat_protocol: str, base_url: str) -> bool:
@@ -794,9 +1165,7 @@ def should_send_reasoning_content(*, chat_protocol: str, base_url: str) -> bool:
         return True
     if env in ("0", "false", "no", "off"):
         return False
-    return chat_protocol == "deepseek" or uses_deepseek_chat_protocol(
-        provider="", base_url=base_url
-    )
+    return uses_full_reasoning_content_echo(chat_protocol=chat_protocol, base_url=base_url)
 
 
 def default_max_request_body_bytes(chat_protocol: str, base_url: str) -> int:
