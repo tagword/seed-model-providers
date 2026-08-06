@@ -1,6 +1,6 @@
 [project]
 name = "seed-model-providers"
-version = "1.0.0"
+version = "1.0.1"
 description = "Unified model provider catalog and protocol resolution for Seed/CodeAgent — extracted from seed.core.model_providers"
 requires-python = ">=3.9"
 license = { text = "MIT" }

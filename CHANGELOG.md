@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.0.1 (unreleased)
+## 1.0.1 (2026-08-06)
 
 - feat: 新增网络代理模块 — is_local_url / requests_proxies_for / httpx_trust_env_for
 - feat: 新增 DashScope/Moonshot/智谱/Anthropic/Gemini/OpenRouter/Groq 供应商
