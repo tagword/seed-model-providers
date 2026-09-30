@@ -71,6 +71,14 @@ from seed_model_providers.model_providers import (
     call_minimax_video_generation,
     normalize_video_num_frames,
 )
+from seed_model_providers.pricing import (
+    PRICING_TABLE,
+    normalize_model as pricing_normalize_model,
+    is_peak_time,
+    resolve_bucket,
+    calculate_cost,
+    format_cost,
+)
 from seed_model_providers.net import (
     is_local_url,
     is_local_host,
@@ -131,6 +139,13 @@ __all__ = [
     "is_local_host",
     "requests_proxies_for",
     "httpx_trust_env_for",
+    # Pricing & cost calculation
+    "PRICING_TABLE",
+    "pricing_normalize_model",
+    "is_peak_time",
+    "resolve_bucket",
+    "calculate_cost",
+    "format_cost",
 ]
 
 __version__ = "1.0.0"
