@@ -108,9 +108,9 @@ PROVIDER_CATALOG: List[Dict[str, Any]] = [
     {
         "id": "deepseek",
         "label": "DeepSeek",
-        "description": "官方 V4 API；思考模式 extra_body.thinking + reasoning_effort（见思考模式文档）",
+        "description": "官方 V4 API；思考模式 extra_body.thinking（见思考模式文档）",
         "default_base_url": "https://api.deepseek.com/v1",
-        "default_chat_model": "deepseek-v4-flash",
+        "default_chat_model": "deepseek-flash",
         "default_image_model": "",
         "chat_protocol": "deepseek",
         "image_protocol": "none",
@@ -118,8 +118,8 @@ PROVIDER_CATALOG: List[Dict[str, Any]] = [
         "requires_api_key": True,
         "models": {
             "chat": [
-                {"id": "deepseek-v4-flash", "label": "DeepSeek V4 Flash"},
-                {"id": "deepseek-v4-pro", "label": "DeepSeek V4 Pro"},
+                {"id": "deepseek-flash", "label": "DeepSeek V4.1 Flash（1M ctx, 384K out）"},
+                {"id": "deepseek-v4-pro", "label": "DeepSeek V4 Pro 0813（1M ctx, 384K out）"},
             ],
         },
     },
@@ -650,9 +650,15 @@ def preset_display_name(preset: Dict[str, Any]) -> str:
 # https://api-docs.deepseek.com/zh-cn/quick_start/pricing
 # https://api-docs.deepseek.com/zh-cn/guides/thinking_mode
 # 旧名 deepseek-reasoner = v4-flash 思考模式（同一 model id，靠 thinking 开关）
+# 2026-09 文档更新：旧名 deepseek-v4-flash / deepseek-v4-flash-vision-exp
+# 仍可调用，但官方推荐使用 deepseek-flash（新名 = DeepSeek-V4.1-Flash）。
 DEEPSEEK_MODEL_ALIASES: Dict[str, str] = {
-    "deepseek-chat": "deepseek-v4-flash",
-    "deepseek-reasoner": "deepseek-v4-flash",
+    # V3 时代别名（V3.2 文档里的旧名）→ 直接指向新名
+    "deepseek-chat": "deepseek-flash",
+    "deepseek-reasoner": "deepseek-flash",
+    # V4 过渡期旧名（官方 2026-09 起推荐 deepseek-flash 新名）→ 新名
+    "deepseek-v4-flash": "deepseek-flash",
+    "deepseek-v4-flash-vision-exp": "deepseek-flash",
 }
 
 VOLCENGINE_IMAGE_MODEL_ALIASES: Dict[str, str] = {
@@ -1122,8 +1128,9 @@ def apply_chat_thinking_extra_body(
     if chat_protocol == "deepseek":
         # V4 思考模式：https://api-docs.deepseek.com/zh-cn/guides/thinking_mode
         extra_body["thinking"] = {"type": "enabled" if resolved_thinking else "disabled"}
-        if resolved_thinking:
-            params["reasoning_effort"] = normalize_reasoning_effort(reasoning_effort)
+        # DeepSeek API 不接受 reasoning_effort（官方文档未列此参数）。
+        # 前端档位选择仅作为内部 hint，不下发到 API。
+        params.pop("reasoning_effort", None)
         return
 
     if chat_protocol == "sglang":
@@ -1179,7 +1186,12 @@ def apply_chat_thinking_extra_body(
 
         # --- reasoning_effort：仅 M3.1-Flash-Preview 生效 ---
         if resolved_thinking and minimax_supports_reasoning_effort(mid):
-            params["reasoning_effort"] = normalize_minimax_reasoning_effort(reasoning_effort)
+            # 「未指定」语义：raw 为空/'default'/'auto'/'unset' → 不发字段
+            raw = (reasoning_effort or "").strip().lower()
+            if raw in ("", "default", "auto", "unset"):
+                params.pop("reasoning_effort", None)
+            else:
+                params["reasoning_effort"] = normalize_minimax_reasoning_effort(reasoning_effort)
         else:
             params.pop("reasoning_effort", None)
         return
