@@ -9,7 +9,7 @@ Chat protocols:
   - ``dashscope``: extra_body.enable_thinking + preserve_thinking; echo reasoning_content
   - ``moonshot``: extra_body.thinking.type (+ keep=all on K2.6+); echo reasoning_content
   - ``zhipu``: extra_body.thinking.type + clear_thinking=false (Preserved Thinking); echo reasoning_content
-  - ``minimax``: reasoning_split + reasoning_details; M2.x inline think tags
+  - ``minimax``: thinking.type(adaptive|disabled) + reasoning_split + reasoning_effort; reasoning_content / <think> 标签
   - ``minimax_anthropic``: URL ``/anthropic`` → Anthropic Messages + prompt caching (llm_exec)
   - ``sglang``: separate_reasoning + chat_template_kwargs
   - ``openai``: generic OpenAI-compatible (OpenAI, Azure, Gemini compat, Claude compat, OpenRouter, Groq, Ollama, 方舟 Doubao, …)
@@ -155,7 +155,7 @@ PROVIDER_CATALOG: List[Dict[str, Any]] = [
         "label": "MiniMax",
         "description": "MiniMax 开放平台；聊天、生图、朗读（T2A）、音乐、视频生成共用 API Key；Anthropic 兼容端点 base_url 含 /anthropic",
         "default_base_url": "https://api.minimaxi.com/v1",
-        "default_chat_model": "MiniMax-M2.7",
+        "default_chat_model": "MiniMax-M3",
         "default_image_model": "image-01",
         "default_speech_model": "speech-2.8-turbo",
         "default_music_model": "music-2.6",
@@ -168,7 +168,8 @@ PROVIDER_CATALOG: List[Dict[str, Any]] = [
         "requires_api_key": True,
         "models": {
             "chat": [
-                {"id": "MiniMax-M3", "label": "MiniMax-M3（最新旗舰，1M tokens）"},
+                {"id": "MiniMax-M3.1-Flash-Preview", "label": "MiniMax-M3.1-Flash-Preview（强制 thinking + 思考深度档位）"},
+                {"id": "MiniMax-M3", "label": "MiniMax-M3（旗舰，1M tokens，thinking 可关）"},
                 {"id": "MiniMax-M2.7", "label": "MiniMax-M2.7"},
                 {"id": "MiniMax-M2.7-highspeed", "label": "MiniMax-M2.7 高速"},
                 {"id": "MiniMax-M2.5", "label": "MiniMax-M2.5"},
@@ -1001,8 +1002,8 @@ def enrich_preset_defaults(preset: Dict[str, Any]) -> Dict[str, Any]:
 def normalize_reasoning_effort(raw: Optional[str] = None) -> str:
     """Map UI/env reasoning effort to DeepSeek V4 values (high | max).
 
-    Returns the value unchanged when ``chat_protocol=minimax`` since MiniMax-M3
-    accepts the full ``minimal | low | medium | high | none`` scale directly.
+    MiniMax has its own scale (see ``normalize_minimax_reasoning_effort``);
+    callers targeting MiniMax must use that helper instead.
     """
     effort = (raw or "").strip().lower()
     if not effort:
@@ -1012,6 +1013,99 @@ def normalize_reasoning_effort(raw: Optional[str] = None) -> str:
     if effort in ("low", "medium", "minimal", "high", "max", "none", "xhigh"):
         return "max" if effort == "xhigh" else effort
     return "high"
+
+
+# ---------------------------------------------------------------------------
+# MiniMax thinking-mode contract
+# ---------------------------------------------------------------------------
+# Authoritative docs (2026-09):
+#   https://platform.minimax.cn/docs/api-reference/text-openai-api
+#
+#   thinking            {"type": "adaptive" | "disabled"}；省略 = 开启 thinking
+#   reasoning_effort    low | medium | high | xhigh | max（仅 M3.1-Flash-Preview
+#                       生效；省略 = max；不支持 none）
+#   reasoning_split     true  → thinking 拆到 reasoning_content 字段
+#                       false → thinking 以 <think> 标签内联在 content
+#
+# 模型差异（实测确认）：
+#   M3.1-Flash-Preview  强制 thinking（thinking.type=disabled → 400）；
+#                       强制 reasoning_split=true（false → 400）；
+#                       reasoning_effort=none → 400
+#   M3                  thinking 可关（disabled → 跳过 thinking）；
+#                       无 reasoning_split 时 thinking 内联在 content
+#   M2.x                thinking 无法关闭（传 disabled 被忽略，仍输出 thinking）；
+#                       无 reasoning_split 时 thinking 内联在 content
+
+# Models that force thinking on and reject ``thinking.type="disabled"``.
+MINIMAX_FORCE_THINKING_MODELS = frozenset({"minimax-m3.1-flash-preview"})
+# Models that reject ``reasoning_split=false``.
+MINIMAX_FORCE_REASONING_SPLIT_MODELS = frozenset({"minimax-m3.1-flash-preview"})
+# Models where ``reasoning_effort`` is honored (others accept it but ignore it).
+MINIMAX_REASONING_EFFORT_MODELS = frozenset({"minimax-m3.1-flash-preview"})
+# Models that cannot turn thinking off at all (M2.x family).
+MINIMAX_ALWAYS_THINKING_PREFIXES = ("minimax-m2",)
+# Models with no thinking capability at all.
+MINIMAX_NO_THINKING_PREFIXES = ("minimax-text-", "minimax-vl-", "abab")
+
+MINIMAX_REASONING_EFFORTS = ("low", "medium", "high", "xhigh", "max")
+
+
+def _minimax_model_id(model: Optional[str]) -> str:
+    return str(model or "").strip().lower()
+
+
+def minimax_forces_thinking(model: Optional[str]) -> bool:
+    """Model rejects ``thinking.type="disabled"`` (HTTP 400)."""
+    return _minimax_model_id(model) in MINIMAX_FORCE_THINKING_MODELS
+
+
+def minimax_forces_reasoning_split(model: Optional[str]) -> bool:
+    """Model rejects ``reasoning_split=false`` (HTTP 400)."""
+    return _minimax_model_id(model) in MINIMAX_FORCE_REASONING_SPLIT_MODELS
+
+
+def minimax_supports_reasoning_effort(model: Optional[str]) -> bool:
+    """``reasoning_effort`` is honored (elsewhere it is accepted but ignored)."""
+    return _minimax_model_id(model) in MINIMAX_REASONING_EFFORT_MODELS
+
+
+def minimax_thinking_capable(model: Optional[str]) -> bool:
+    """Whether the model emits thinking at all."""
+    mid = _minimax_model_id(model)
+    if not mid:
+        return True
+    return not mid.startswith(MINIMAX_NO_THINKING_PREFIXES)
+
+
+def minimax_can_disable_thinking(model: Optional[str]) -> bool:
+    """Whether ``thinking.type="disabled"`` actually turns thinking off."""
+    mid = _minimax_model_id(model)
+    if not mid:
+        return True
+    if minimax_forces_thinking(mid):
+        return False
+    return not mid.startswith(MINIMAX_ALWAYS_THINKING_PREFIXES)
+
+
+def normalize_minimax_reasoning_effort(raw: Optional[str] = None) -> str:
+    """Clamp a reasoning-effort value to MiniMax's ``low|medium|high|xhigh|max``.
+
+    MiniMax rejects ``none`` (and DeepSeek-only values).  Unknown / empty input
+    falls back to the env default, then to ``max`` (the API default).
+    """
+    effort = (raw or "").strip().lower()
+    if not effort:
+        effort = _pick_default_env(
+            "max", "LLM_REASONING_EFFORT", ("SEED_LLM_REASONING_EFFORT",)
+        ).strip().lower()
+    if effort in MINIMAX_REASONING_EFFORTS:
+        return effort
+    # DeepSeek aliases → nearest MiniMax tier.
+    if effort in ("minimal", "none"):
+        return "low"
+    if effort == "high":
+        return "high"
+    return "max"
 
 
 def apply_chat_thinking_extra_body(
@@ -1043,12 +1137,53 @@ def apply_chat_thinking_extra_body(
         return
 
     if chat_protocol == "minimax":
-        # MiniMax-M3 原生 Interleaved Thinking：reasoning_split=True 让思考内容
-        # 通过 reasoning_details 字段单独返回，便于在多轮 Function Call 中完整回传。
-        # 文档: https://platform.minimaxi.com/docs/guides/text-m3-function-call
-        # M2.x 系列使用 <think>...</think> 内联在 content；llm_exec 负责剥离。
+        # MiniMax thinking 控制（https://platform.minimax.cn/docs/api-reference/text-openai-api）
+        #
+        # 关键点（此前实现有误）：
+        #   1. 关闭 thinking 必须传 ``thinking={"type": "disabled"}``；
+        #      旧实现只传 reasoning_split，导致「关闭思考」完全无效。
+        #   2. ``reasoning_split=True`` 才是把 thinking 拆到 reasoning_content
+        #      的正确开关；旧实现把它塞进 extra_body 但被误当成顶层参数，
+        #      且 M3 默认不拆（thinking 内联在 content 里，污染正文）。
+        #   3. ``reasoning_effort`` 走顶层参数（不是 extra_body），且取值域是
+        #      low|medium|high|xhigh|max（不支持 none）。
+        #   4. M3.1-Flash-Preview 强制 thinking + 强制 reasoning_split=true，
+        #      传 disabled / false 会 400；M2.x 无法关闭 thinking。
+        mid = str(model or "").strip()
+        if not minimax_thinking_capable(mid):
+            # 纯文本 / 视觉老模型没有 thinking，别传任何相关字段。
+            extra_body.pop("reasoning_split", None)
+            params.pop("reasoning_effort", None)
+            return
+
+        # --- reasoning_split：把 thinking 拆到 reasoning_content ---
+        if minimax_forces_reasoning_split(mid):
+            extra_body["reasoning_split"] = True
+        else:
+            # 显式传值，避免服务端默认把 thinking 内联进 content。
+            extra_body["reasoning_split"] = bool(resolved_thinking)
+
+        # --- thinking 开关 ---
         if resolved_thinking:
-            extra_body.setdefault("reasoning_split", True)
+            extra_body["thinking"] = {"type": "adaptive"}
+        elif minimax_forces_thinking(mid):
+            # 强制开启：传 disabled 会 400，只能保持 adaptive。
+            logger.warning(
+                "MiniMax model %s forces thinking on; ignoring enable_thinking=False.",
+                mid,
+            )
+            extra_body["thinking"] = {"type": "adaptive"}
+        elif minimax_can_disable_thinking(mid):
+            extra_body["thinking"] = {"type": "disabled"}
+        else:
+            # M2.x：thinking 无法关闭，传 disabled 会被忽略，索性不传。
+            extra_body.pop("thinking", None)
+
+        # --- reasoning_effort：仅 M3.1-Flash-Preview 生效 ---
+        if resolved_thinking and minimax_supports_reasoning_effort(mid):
+            params["reasoning_effort"] = normalize_minimax_reasoning_effort(reasoning_effort)
+        else:
+            params.pop("reasoning_effort", None)
         return
 
     if chat_protocol == "dashscope":

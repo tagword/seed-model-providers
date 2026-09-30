@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- fix(minimax): 思考模式控制失效 — 旧实现只传 `reasoning_split` 从不传 `thinking`，导致「关闭思考」完全无效（服务端始终思考）。现按模型能力传 `thinking={"type":"adaptive"|"disabled"}`。
+- fix(minimax): 显式传 `reasoning_split`（`True`/`False`），避免服务端默认把 thinking 内联进 `content` 污染正文。
+- fix(minimax): `reasoning_effort` 走顶层参数并归一为 MiniMax 档位 `low|medium|high|xhigh|max`（不支持 `none`）；新增 `normalize_minimax_reasoning_effort()`。
+- feat(minimax): 模型能力探测 helper — `minimax_forces_thinking` / `minimax_forces_reasoning_split` / `minimax_supports_reasoning_effort` / `minimax_thinking_capable` / `minimax_can_disable_thinking`。M3.1-Flash-Preview 强制 thinking + 强制 split（传 disabled/false → 400），自动降级；M2.x 无法关闭；Text-01/VL-01 无 thinking 能力。
+- feat(minimax): 新增 `MiniMax-M3.1-Flash-Preview`；默认聊天模型 `MiniMax-M2.7` → `MiniMax-M3`。
+
 ## 1.0.1 (2026-08-06)
 
 - feat: 新增网络代理模块 — is_local_url / requests_proxies_for / httpx_trust_env_for
