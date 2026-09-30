@@ -177,9 +177,7 @@ PROVIDER_CATALOG: List[Dict[str, Any]] = [
                 {"id": "MiniMax-M2.1", "label": "MiniMax-M2.1"},
                 {"id": "MiniMax-M2.1-highspeed", "label": "MiniMax-M2.1 高速"},
                 {"id": "MiniMax-M2", "label": "MiniMax-M2（开源）"},
-                {"id": "MiniMax-M2-Her", "label": "MiniMax-M2-Her（角色扮演）"},
                 {"id": "MiniMax-Text-01", "label": "MiniMax-Text-01（4M tokens，超长上下文）"},
-                {"id": "MiniMax-VL-01", "label": "MiniMax-VL-01（视觉多模态，4M tokens）"},
             ],
             "image": [
                 {"id": "image-01", "label": "image-01"},
