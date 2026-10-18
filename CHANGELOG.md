@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.2 (2026-10-18)
 
 - feat(param-compat): 新增 `param_compat` 模块，处理跨供应商请求参数兼容：
   - OpenAI 推理家族（`o1`/`o3`/`o4`、`gpt-5+`，含 `azure/gpt-5.6-luna`、`gpt-6-luna` 等网关别名）改用 `max_completion_tokens`，不再被 `unsupported_parameter` 拒绝；`gpt-4.x` 及 DeepSeek/MiniMax 等仍用 `max_tokens`。
