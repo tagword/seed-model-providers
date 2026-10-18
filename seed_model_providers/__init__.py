@@ -71,6 +71,18 @@ from seed_model_providers.model_providers import (
     call_minimax_video_generation,
     normalize_video_num_frames,
 )
+from seed_model_providers.param_compat import (
+    MAX_COMPLETION_TOKENS,
+    MAX_TOKENS,
+    apply_max_tokens_param,
+    fix_params_from_error,
+    get_max_tokens,
+    is_param_error,
+    max_tokens_param_for,
+    reset_param_cache,
+    sanitize_chat_params,
+    set_max_tokens,
+)
 from seed_model_providers.pricing import (
     PRICING_TABLE,
     normalize_model as pricing_normalize_model,
@@ -139,6 +151,17 @@ __all__ = [
     "is_local_host",
     "requests_proxies_for",
     "httpx_trust_env_for",
+    # Chat request parameter compatibility
+    "MAX_TOKENS",
+    "MAX_COMPLETION_TOKENS",
+    "apply_max_tokens_param",
+    "fix_params_from_error",
+    "get_max_tokens",
+    "is_param_error",
+    "max_tokens_param_for",
+    "reset_param_cache",
+    "sanitize_chat_params",
+    "set_max_tokens",
     # Pricing & cost calculation
     "PRICING_TABLE",
     "pricing_normalize_model",

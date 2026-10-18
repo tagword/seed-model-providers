@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- feat(param-compat): 新增 `param_compat` 模块，处理跨供应商请求参数兼容：
+  - OpenAI 推理家族（`o1`/`o3`/`o4`、`gpt-5+`，含 `azure/gpt-5.6-luna`、`gpt-6-luna` 等网关别名）改用 `max_completion_tokens`，不再被 `unsupported_parameter` 拒绝；`gpt-4.x` 及 DeepSeek/MiniMax 等仍用 `max_tokens`。
+  - 服务端能力缓存：按 `(base_url, model)` 记录实际接受的参数名，进程内只探测一次。
+  - `repetition_penalty` 预处理：DeepSeek NInfer 仅接受中性值 `1`，非 `1` 自动剥离并告警（不再 400）。
+  - 兜底修复：对 `400/422` 参数错误自动修正后重试一次（`max_tokens` 双向互换、剥离 `repetition_penalty`、剥离推理模型不支持的 `temperature`/`top_p`/`top_k` 等）；鉴权/限流/5xx 不重试。
+## Unreleased
+
 - fix(minimax): 思考模式控制失效 — 旧实现只传 `reasoning_split` 从不传 `thinking`，导致「关闭思考」完全无效（服务端始终思考）。现按模型能力传 `thinking={"type":"adaptive"|"disabled"}`。
 - fix(minimax): 显式传 `reasoning_split`（`True`/`False`），避免服务端默认把 thinking 内联进 `content` 污染正文。
 - fix(minimax): `reasoning_effort` 走顶层参数并归一为 MiniMax 档位 `low|medium|high|xhigh|max`（不支持 `none`）；新增 `normalize_minimax_reasoning_effort()`。
